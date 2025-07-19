@@ -32,7 +32,7 @@ class GameView(context: Context, attrs: AttributeSet? = null) : View(context, at
     private lateinit var birdBitmap: Bitmap
 
     // Obstacle properties
-    private val obstacleWidth = 400f
+    private val obstacleWidth = 100f
     private val obstacleGap = 400f
     private var obstacleX = 800f
     private var obstacleSpeed = 17f
@@ -283,7 +283,7 @@ class GameView(context: Context, attrs: AttributeSet? = null) : View(context, at
     }
 
     private fun checkCollision(): Boolean {
-        val offset = 150f
+        val offset = 50f
         val ballX = 200f
         val ballRadius = 30f
 
