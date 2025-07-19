@@ -13,6 +13,7 @@ import android.util.AttributeSet
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.ImageView
@@ -32,7 +33,7 @@ class IslandGameView(context: Context, attrs: AttributeSet? = null) : View(conte
     private lateinit var birdBitmap: Bitmap
 
     // Obstacle properties
-    private val obstacleWidth = 400f
+    private val obstacleWidth = 300f
     private val obstacleGap = 400f
     private var obstacleX = 800f
     private var obstacleSpeed = 17f
@@ -56,6 +57,9 @@ class IslandGameView(context: Context, attrs: AttributeSet? = null) : View(conte
     private var hasPassedObstacle = false
     private lateinit var customTypeface: Typeface
 
+    // Reference to the ImageView for pause/play button
+    private var pausePlayImageView: ImageView? = null
+
     // Status bar height for score text positioning
     private val statusBarHeight: Float by lazy { getStatusBarHeight().toFloat() }
 
@@ -70,6 +74,7 @@ class IslandGameView(context: Context, attrs: AttributeSet? = null) : View(conte
             backgroundBitmap = BitmapFactory.decodeResource(resources, R.drawable.islandbg)
         } catch (e: Exception) {
             Toast.makeText(context, "Error loading images", Toast.LENGTH_SHORT).show()
+            Log.e("IslandGameView", "Error loading images", e)
         }
 
         // Initialize SoundPool for coin sound
@@ -78,13 +83,13 @@ class IslandGameView(context: Context, attrs: AttributeSet? = null) : View(conte
             coinSoundId = soundPool?.load(context, R.raw.coin, 1) ?: 0
         } catch (e: Exception) {
             Toast.makeText(context, "Error loading coin sound", Toast.LENGTH_SHORT).show()
+            Log.e("IslandGameView", "Error loading coin sound", e)
         }
 
         // Load custom font
         try {
             customTypeface = Typeface.createFromAsset(context.assets, "fonts/orbitron_bold.ttf")
         } catch (e: Exception) {
-            Toast.makeText(context, "Error loading font", Toast.LENGTH_SHORT).show()
             Log.e("IslandGameView", "Error loading font", e)
             customTypeface = Typeface.DEFAULT_BOLD // Fallback
         }
@@ -92,6 +97,49 @@ class IslandGameView(context: Context, attrs: AttributeSet? = null) : View(conte
         // Load high score from SharedPreferences
         highScore = prefs.getInt("highScoreIsland", 0)
         Log.d("IslandGameView", "Loaded high score: $highScore")
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        // Initialize pausePlayImageView when view is attached
+        pausePlayImageView = (parent as? ViewGroup)?.findViewById<ImageView>(R.id.rightSideImage)
+        Log.d("IslandGameView", "onAttachedToWindow: pausePlayImageView is ${if (pausePlayImageView != null) "found" else "null"}")
+        pausePlayImageView?.let {
+            it.isClickable = true
+            it.isFocusable = true
+            it.setOnClickListener {
+                Log.d("IslandGameView", "Pause/Play ImageView clicked")
+                togglePause()
+            }
+            try {
+                it.setImageResource(R.drawable.play)
+                Log.d("IslandGameView", "Initial play image set")
+            } catch (e: Exception) {
+                Log.e("IslandGameView", "Error setting initial play image", e)
+                Toast.makeText(context, "Error setting initial play image", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // Method to set ImageView from activity if needed
+    fun setPausePlayImageView(imageView: ImageView) {
+        pausePlayImageView = imageView
+        pausePlayImageView?.let {
+            it.isClickable = true
+            it.isFocusable = true
+            it.setOnClickListener {
+                Log.d("IslandGameView", "Pause/Play ImageView clicked (set manually)")
+                togglePause()
+            }
+            try {
+                it.setImageResource(if (isGameStarted && !isGamePaused) R.drawable.pause else R.drawable.play)
+                Log.d("IslandGameView", "ImageView set manually, image: ${if (isGameStarted && !isGamePaused) "pause" else "play"}")
+            } catch (e: Exception) {
+                Log.e("IslandGameView", "Error setting image in setPausePlayImageView", e)
+                Toast.makeText(context, "Error setting image", Toast.LENGTH_SHORT).show()
+            }
+        }
+        Log.d("IslandGameView", "PausePlayImageView set manually: ${if (pausePlayImageView != null) "found" else "null"}")
     }
 
     // Get status bar height in pixels
@@ -170,7 +218,7 @@ class IslandGameView(context: Context, attrs: AttributeSet? = null) : View(conte
 
         // Set custom font and color
         paint.typeface = customTypeface
-        paint.color = android.graphics.Color.parseColor("#00BFFF") // Bright blue
+        paint.color = android.graphics.Color.parseColor("#FFCC00") // Bright blue
 
         if (!isGameStarted) {
             // Draw "Double tap to start" prompt
@@ -235,7 +283,7 @@ class IslandGameView(context: Context, attrs: AttributeSet? = null) : View(conte
 
         // Display scores if game started
         if (isGameStarted) {
-            paint.textSize = 50f
+            paint.textSize = 35f
             val highScoreY = statusBarHeight + 50f
             val scoreY = statusBarHeight + 100f
             canvas.drawText("Highest Score: $highScore", 50f, highScoreY, paint)
@@ -253,6 +301,15 @@ class IslandGameView(context: Context, attrs: AttributeSet? = null) : View(conte
             isGameStarted = true
             isGamePaused = false
             handler.post(runnable)
+            pausePlayImageView?.let {
+                try {
+                    it.setImageResource(R.drawable.pause)
+                    Log.d("IslandGameView", "Game started, set pause image")
+                } catch (e: Exception) {
+                    Log.e("IslandGameView", "Error setting pause image in startGame", e)
+                    Toast.makeText(context, "Error setting pause image", Toast.LENGTH_SHORT).show()
+                }
+            } ?: Log.e("IslandGameView", "pausePlayImageView is null in startGame")
             Log.d("IslandGameView", "Game started")
         }
     }
@@ -260,14 +317,24 @@ class IslandGameView(context: Context, attrs: AttributeSet? = null) : View(conte
     fun togglePause() {
         if (isGameStarted && !isGameOver) {
             isGamePaused = !isGamePaused
-            if (isGamePaused) {
-                handler.removeCallbacks(runnable)
-                Log.d("IslandGameView", "Game paused")
-            } else {
-                handler.post(runnable)
-                Log.d("IslandGameView", "Game resumed")
-            }
+            pausePlayImageView?.let {
+                try {
+                    if (isGamePaused) {
+                        handler.removeCallbacks(runnable)
+                        it.setImageResource(R.drawable.play)
+                        Log.d("IslandGameView", "Game paused, set play image")
+                    } else {
+                        handler.post(runnable)
+                        it.setImageResource(R.drawable.pause)
+                        Log.d("IslandGameView", "Game resumed, set pause image")
+                    }
+                } catch (e: Exception) {
+                    Log.e("IslandGameView", "Error setting image in togglePause", e)
+                    Toast.makeText(context, "Error setting image in togglePause", Toast.LENGTH_SHORT).show()
+                }
+            } ?: Log.e("IslandGameView", "pausePlayImageView is null in togglePause")
             invalidate()
+            Log.d("IslandGameView", "togglePause, isGamePaused: $isGamePaused")
         } else {
             Log.d("IslandGameView", "togglePause ignored, isGameStarted: $isGameStarted, isGameOver: $isGameOver")
         }
@@ -283,9 +350,9 @@ class IslandGameView(context: Context, attrs: AttributeSet? = null) : View(conte
     }
 
     private fun checkCollision(): Boolean {
-        val offset = 100f
+        val offset = 30f
         val ballX = 200f
-        val ballRadius = 50f
+        val ballRadius = 30f
 
         val upperRectLeft = obstacleX + offset
         val upperRectRight = obstacleX + obstacleWidth - offset
@@ -359,6 +426,15 @@ class IslandGameView(context: Context, attrs: AttributeSet? = null) : View(conte
         isGamePaused = false
         // Reload high score
         highScore = prefs.getInt("highScoreIsland", 0)
+        pausePlayImageView?.let {
+            try {
+                it.setImageResource(R.drawable.play)
+                Log.d("IslandGameView", "Game reset, high score: $highScore, set play image")
+            } catch (e: Exception) {
+                Log.e("IslandGameView", "Error setting play image in resetGame", e)
+                Toast.makeText(context, "Error setting play image", Toast.LENGTH_SHORT).show()
+            }
+        } ?: Log.e("IslandGameView", "pausePlayImageView is null in resetGame")
         invalidate()
         Log.d("IslandGameView", "Game reset, high score: $highScore")
     }
@@ -407,6 +483,7 @@ class IslandGameView(context: Context, attrs: AttributeSet? = null) : View(conte
         handler.removeCallbacks(runnable)
         soundPool?.release()
         soundPool = null
+        pausePlayImageView = null
         Log.d("IslandGameView", "View detached, resources cleaned up")
     }
 }

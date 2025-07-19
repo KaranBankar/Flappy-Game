@@ -16,12 +16,14 @@ class FlappyBallActivity : AppCompatActivity() {
 
     private lateinit var gameView: GameView
     private lateinit var gestureDetector: GestureDetectorCompat
+    private lateinit var pauseplay: ImageView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_flappy_ball)
 
         gameView = findViewById(R.id.gameView)
+        pauseplay=findViewById(R.id.rightSideImage)
 
         // Set up click listener for pause/resume image
         findViewById<ImageView>(R.id.rightSideImage).setOnClickListener {
@@ -78,6 +80,7 @@ class FlappyBallActivity : AppCompatActivity() {
         if (gameView.isGameStarted && !gameView.isGameOver && !gameView.isGamePaused) {
             Log.d("FlappyBallActivity", "Resuming game")
             gameView.handler.post(gameView.runnable)
+
         }
     }
 

@@ -13,6 +13,7 @@ import android.util.AttributeSet
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.ImageView
@@ -56,6 +57,9 @@ class GhostGameView(context: Context, attrs: AttributeSet? = null) : View(contex
     private var hasPassedObstacle = false
     private lateinit var customTypeface: Typeface
 
+    // Reference to the ImageView for pause/play button
+    private var pausePlayImageView: ImageView? = null
+
     // Status bar height for score text positioning
     private val statusBarHeight: Float by lazy { getStatusBarHeight().toFloat() }
 
@@ -70,6 +74,7 @@ class GhostGameView(context: Context, attrs: AttributeSet? = null) : View(contex
             backgroundBitmap = BitmapFactory.decodeResource(resources, R.drawable.ghostbg)
         } catch (e: Exception) {
             Toast.makeText(context, "Error loading images", Toast.LENGTH_SHORT).show()
+            Log.e("GhostGameView", "Error loading images", e)
         }
 
         // Initialize SoundPool for coin sound
@@ -78,13 +83,13 @@ class GhostGameView(context: Context, attrs: AttributeSet? = null) : View(contex
             coinSoundId = soundPool?.load(context, R.raw.coin, 1) ?: 0
         } catch (e: Exception) {
             Toast.makeText(context, "Error loading coin sound", Toast.LENGTH_SHORT).show()
+            Log.e("GhostGameView", "Error loading coin sound", e)
         }
 
         // Load custom font
         try {
             customTypeface = Typeface.createFromAsset(context.assets, "fonts/orbitron_bold.ttf")
         } catch (e: Exception) {
-            Toast.makeText(context, "Error loading font", Toast.LENGTH_SHORT).show()
             Log.e("GhostGameView", "Error loading font", e)
             customTypeface = Typeface.DEFAULT_BOLD // Fallback
         }
@@ -92,6 +97,49 @@ class GhostGameView(context: Context, attrs: AttributeSet? = null) : View(contex
         // Load high score from SharedPreferences
         highScore = prefs.getInt("highScoreGhost", 0)
         Log.d("GhostGameView", "Loaded high score: $highScore")
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        // Initialize pausePlayImageView when view is attached
+        pausePlayImageView = (parent as? ViewGroup)?.findViewById<ImageView>(R.id.rightSideImage)
+        Log.d("GhostGameView", "onAttachedToWindow: pausePlayImageView is ${if (pausePlayImageView != null) "found" else "null"}")
+        pausePlayImageView?.let {
+            it.isClickable = true
+            it.isFocusable = true
+            it.setOnClickListener {
+                Log.d("GhostGameView", "Pause/Play ImageView clicked")
+                togglePause()
+            }
+            try {
+                it.setImageResource(R.drawable.play)
+                Log.d("GhostGameView", "Initial play image set")
+            } catch (e: Exception) {
+                Log.e("GhostGameView", "Error setting initial play image", e)
+                Toast.makeText(context, "Error setting initial play image", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // Method to set ImageView from activity if needed
+    fun setPausePlayImageView(imageView: ImageView) {
+        pausePlayImageView = imageView
+        pausePlayImageView?.let {
+            it.isClickable = true
+            it.isFocusable = true
+            it.setOnClickListener {
+                Log.d("GhostGameView", "Pause/Play ImageView clicked (set manually)")
+                togglePause()
+            }
+            try {
+                it.setImageResource(if (isGameStarted && !isGamePaused) R.drawable.pause else R.drawable.play)
+                Log.d("GhostGameView", "ImageView set manually, image: ${if (isGameStarted && !isGamePaused) "pause" else "play"}")
+            } catch (e: Exception) {
+                Log.e("GhostGameView", "Error setting image in setPausePlayImageView", e)
+                Toast.makeText(context, "Error setting image", Toast.LENGTH_SHORT).show()
+            }
+        }
+        Log.d("GhostGameView", "PausePlayImageView set manually: ${if (pausePlayImageView != null) "found" else "null"}")
     }
 
     // Get status bar height in pixels
@@ -170,7 +218,7 @@ class GhostGameView(context: Context, attrs: AttributeSet? = null) : View(contex
 
         // Set custom font and color
         paint.typeface = customTypeface
-        paint.color = android.graphics.Color.parseColor("#00BFFF") // Bright blue
+        paint.color = android.graphics.Color.parseColor("#F3E9DC") // Bright blue
 
         if (!isGameStarted) {
             // Draw "Double tap to start" prompt
@@ -235,7 +283,7 @@ class GhostGameView(context: Context, attrs: AttributeSet? = null) : View(contex
 
         // Display scores if game started
         if (isGameStarted) {
-            paint.textSize = 50f
+            paint.textSize = 35f
             val highScoreY = statusBarHeight + 50f
             val scoreY = statusBarHeight + 100f
             canvas.drawText("Highest Score: $highScore", 50f, highScoreY, paint)
@@ -253,6 +301,15 @@ class GhostGameView(context: Context, attrs: AttributeSet? = null) : View(contex
             isGameStarted = true
             isGamePaused = false
             handler.post(runnable)
+            pausePlayImageView?.let {
+                try {
+                    it.setImageResource(R.drawable.pause)
+                    Log.d("GhostGameView", "Game started, set pause image")
+                } catch (e: Exception) {
+                    Log.e("GhostGameView", "Error setting pause image in startGame", e)
+                    Toast.makeText(context, "Error setting pause image", Toast.LENGTH_SHORT).show()
+                }
+            } ?: Log.e("GhostGameView", "pausePlayImageView is null in startGame")
             Log.d("GhostGameView", "Game started")
         }
     }
@@ -260,14 +317,24 @@ class GhostGameView(context: Context, attrs: AttributeSet? = null) : View(contex
     fun togglePause() {
         if (isGameStarted && !isGameOver) {
             isGamePaused = !isGamePaused
-            if (isGamePaused) {
-                handler.removeCallbacks(runnable)
-                Log.d("GhostGameView", "Game paused")
-            } else {
-                handler.post(runnable)
-                Log.d("GhostGameView", "Game resumed")
-            }
+            pausePlayImageView?.let {
+                try {
+                    if (isGamePaused) {
+                        handler.removeCallbacks(runnable)
+                        it.setImageResource(R.drawable.play)
+                        Log.d("GhostGameView", "Game paused, set play image")
+                    } else {
+                        handler.post(runnable)
+                        it.setImageResource(R.drawable.pause)
+                        Log.d("GhostGameView", "Game resumed, set pause image")
+                    }
+                } catch (e: Exception) {
+                    Log.e("GhostGameView", "Error setting image in togglePause", e)
+                    Toast.makeText(context, "Error setting image in togglePause", Toast.LENGTH_SHORT).show()
+                }
+            } ?: Log.e("GhostGameView", "pausePlayImageView is null in togglePause")
             invalidate()
+            Log.d("GhostGameView", "togglePause, isGamePaused: $isGamePaused")
         } else {
             Log.d("GhostGameView", "togglePause ignored, isGameStarted: $isGameStarted, isGameOver: $isGameOver")
         }
@@ -359,6 +426,15 @@ class GhostGameView(context: Context, attrs: AttributeSet? = null) : View(contex
         isGamePaused = false
         // Reload high score
         highScore = prefs.getInt("highScoreGhost", 0)
+        pausePlayImageView?.let {
+            try {
+                it.setImageResource(R.drawable.play)
+                Log.d("GhostGameView", "Game reset, high score: $highScore, set play image")
+            } catch (e: Exception) {
+                Log.e("GhostGameView", "Error setting play image in resetGame", e)
+                Toast.makeText(context, "Error setting play image", Toast.LENGTH_SHORT).show()
+            }
+        } ?: Log.e("GhostGameView", "pausePlayImageView is null in resetGame")
         invalidate()
         Log.d("GhostGameView", "Game reset, high score: $highScore")
     }
@@ -407,6 +483,7 @@ class GhostGameView(context: Context, attrs: AttributeSet? = null) : View(contex
         handler.removeCallbacks(runnable)
         soundPool?.release()
         soundPool = null
+        pausePlayImageView = null
         Log.d("GhostGameView", "View detached, resources cleaned up")
     }
 }
