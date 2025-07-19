@@ -1,0 +1,13 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.FlappyBall" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your light theme here. -->
+        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+
+        <item name="colorPrimary">#84E2ED</item>
+    </style>
+
+    <style name="Theme.FlappyBall" parent="Base.Theme.FlappyBall" >
+        <item name="colorPrimary">#84E2ED</item>
+    </style>
+</resources>

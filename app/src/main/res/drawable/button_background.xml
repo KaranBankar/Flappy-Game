@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <!-- Gradient background for the button -->
+    <gradient
+        android:startColor="#FF6200EE"
+        android:endColor="#FF3700B3"
+        android:angle="45" />
+    <!-- Rounded corners with 10dp radius -->
+    <corners android:radius="10dp" />
+    <!-- White stroke (border) with 2dp width -->
+    <stroke
+        android:width="2dp"
+        android:color="#FFFFFF" />
+</shape>
